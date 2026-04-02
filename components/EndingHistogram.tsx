@@ -10,7 +10,7 @@ export function EndingHistogram({ bins, totalTrials }: EndingHistogramProps) {
   const binnedTotal = bins.reduce((sum, bin) => sum + bin.count, 0);
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
+    <div className="rounded-xl border border-slate-200 bg-white p-4" data-testid="ending-histogram-card">
       <h3 className="text-sm font-semibold text-slate-900">Ending Value Distribution (Real Dollars)</h3>
       <p className="mb-4 mt-1 text-xs text-slate-500">Histogram of ending balances across all rolling historical periods.</p>
 

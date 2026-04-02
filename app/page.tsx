@@ -31,6 +31,7 @@ function NumberField({
   max,
   suffix,
   error,
+  id,
 }: {
   label: string;
   value: number;
@@ -40,18 +41,25 @@ function NumberField({
   max?: number;
   suffix?: string;
   error?: string;
+  id?: string;
 }) {
+  const inputId = id ?? label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const errorId = `${inputId}-error`;
+
   return (
-    <label className="space-y-1.5">
+    <label className="space-y-1.5" htmlFor={inputId}>
       <span className="text-xs font-medium tracking-wide text-slate-600">{label}</span>
       <div className="relative">
         <input
+          id={inputId}
           type="number"
           value={Number.isFinite(value) ? value : ""}
           min={min}
           max={max}
           step={step}
           onChange={(event) => onChange(Number(event.target.value))}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? errorId : undefined}
           className={`w-full rounded-lg border bg-white px-3 py-2 pr-10 text-sm text-slate-900 outline-none transition focus:ring-2 ${
             error
               ? "border-rose-400 focus:border-rose-500 focus:ring-rose-100"
@@ -60,7 +68,11 @@ function NumberField({
         />
         {suffix ? <span className="pointer-events-none absolute right-3 top-2 text-xs text-slate-500">{suffix}</span> : null}
       </div>
-      {error ? <p className="text-xs font-medium text-rose-600">{error}</p> : null}
+      {error ? (
+        <p id={errorId} role="alert" className="text-xs font-medium text-rose-600">
+          {error}
+        </p>
+      ) : null}
     </label>
   );
 }
@@ -97,6 +109,7 @@ export default function Home() {
 
           <div className="space-y-4">
             <NumberField
+              id="starting-balance-input"
               label="Starting Portfolio Balance"
               value={draftInputs.startingBalance}
               min={1}
@@ -109,6 +122,7 @@ export default function Home() {
             <label className="space-y-1.5">
               <span className="text-xs font-medium tracking-wide text-slate-600">Analysis Period</span>
               <select
+                id="analysis-period-input"
                 value={draftInputs.years}
                 onChange={(event) => setField("years", Number(event.target.value) as 20 | 25 | 30)}
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
@@ -121,6 +135,7 @@ export default function Home() {
             </label>
 
             <NumberField
+              id="annual-withdrawal-input"
               label="Annual Withdrawal (Real-Dollar)"
               value={draftInputs.annualWithdrawal}
               min={0}
@@ -130,6 +145,7 @@ export default function Home() {
               error={validationErrors.annualWithdrawal}
             />
             <NumberField
+              id="inflation-rate-input"
               label="User Inflation"
               value={draftInputs.inflationRate}
               min={0}
@@ -139,6 +155,7 @@ export default function Home() {
               error={validationErrors.inflationRate}
             />
             <NumberField
+              id="fee-drag-input"
               label="Annual Fees Drag"
               value={draftInputs.feeDrag}
               min={0}
@@ -152,6 +169,7 @@ export default function Home() {
               <h2 className="mb-3 text-sm font-semibold">Allocation Mix</h2>
               <div className="space-y-3">
                 <NumberField
+                  id="stock-allocation-input"
                   label="U.S. Stocks"
                   value={draftInputs.stockAllocation}
                   min={0}
@@ -162,6 +180,7 @@ export default function Home() {
                   error={validationErrors.stockAllocation}
                 />
                 <NumberField
+                  id="bond-allocation-input"
                   label="U.S. Bonds"
                   value={draftInputs.bondAllocation}
                   min={0}
@@ -182,6 +201,7 @@ export default function Home() {
               type="button"
               onClick={runSimulation}
               disabled={hasValidationErrors}
+              data-testid="run-analysis-button"
               className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               Run historical analysis
@@ -189,7 +209,7 @@ export default function Home() {
           </div>
         </aside>
 
-        <main className="rounded-xl border border-slate-200 p-6">
+        <main className="rounded-xl border border-slate-200 p-6" data-testid="results-section">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-2xl font-semibold tracking-tight">Rolling Historical Results</h2>
