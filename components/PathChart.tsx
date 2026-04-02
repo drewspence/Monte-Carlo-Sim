@@ -5,6 +5,8 @@ type PathChartProps = {
     color: string;
     values: number[];
   }[];
+  title?: string;
+  description?: string;
 };
 
 const width = 760;
@@ -18,7 +20,12 @@ function pathFromPoints(points: { x: number; y: number }[]): string {
     .join(" ");
 }
 
-export function PathChart({ years, series }: PathChartProps) {
+export function PathChart({
+  years,
+  series,
+  title = "Historical Path Percentiles (Real Dollars)",
+  description = "10th, 50th, and 90th percentile inflation-adjusted balances across all tested periods.",
+}: PathChartProps) {
   const values = series.flatMap((entry) => entry.values);
   const maxY = Math.max(...values, 1);
   const minY = 0;
@@ -37,8 +44,8 @@ export function PathChart({ years, series }: PathChartProps) {
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4" data-testid="path-chart-card">
-      <h3 className="text-sm font-semibold text-slate-900">Historical Path Percentiles (Real Dollars)</h3>
-      <p className="mb-4 mt-1 text-xs text-slate-500">10th, 50th, and 90th percentile inflation-adjusted balances across all tested periods.</p>
+      <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+      <p className="mb-4 mt-1 text-xs text-slate-500">{description}</p>
 
       <svg viewBox={`0 0 ${width} ${height}`} className="h-72 w-full" data-testid="path-chart-svg" role="img" aria-label="Historical path percentiles chart">
         {Array.from({ length: yTicks + 1 }, (_, i) => {
