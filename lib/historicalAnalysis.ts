@@ -125,18 +125,18 @@ export function runHistoricalSimulation(inputs: HistoricalInputs): HistoricalRes
 
   const endingValues: number[] = [];
   const depletionYears: number[] = [];
-  const yearlyBalancesByPeriod: number[][] = [];
+  const yearlyRealBalancesByPeriod: number[][] = [];
   const outcomes: { period: string; endingValue: number }[] = [];
 
   for (let startIndex = 0; startIndex < periodsToTest; startIndex += 1) {
     let balance = inputs.startingBalance;
     let withdrawal = inputs.annualWithdrawal;
     let depletionYear: number | null = null;
-    const path: number[] = [balance];
+    const nominalPath: number[] = [balance];
 
     for (let offset = 0; offset < inputs.years; offset += 1) {
       if (balance <= 0) {
-        path.push(0);
+        nominalPath.push(0);
         withdrawal *= 1 + inputs.inflationRate / 100;
         continue;
       }
@@ -146,7 +146,7 @@ export function runHistoricalSimulation(inputs: HistoricalInputs): HistoricalRes
       if (balance <= 0 && depletionYear === null) {
         balance = 0;
         depletionYear = offset + 1;
-        path.push(0);
+        nominalPath.push(0);
         withdrawal *= 1 + inputs.inflationRate / 100;
         continue;
       }
@@ -157,7 +157,7 @@ export function runHistoricalSimulation(inputs: HistoricalInputs): HistoricalRes
 
       balance *= 1 + blendedReturn;
 
-      path.push(Math.max(0, balance));
+      nominalPath.push(Math.max(0, balance));
       withdrawal *= 1 + inputs.inflationRate / 100;
     }
 
@@ -165,10 +165,11 @@ export function runHistoricalSimulation(inputs: HistoricalInputs): HistoricalRes
       depletionYears.push(depletionYear);
     }
 
-    const endingReal = path[path.length - 1] / (1 + inputs.inflationRate / 100) ** inputs.years;
+    const realPath = nominalPath.map((value, yearIndex) => value / (1 + inputs.inflationRate / 100) ** yearIndex);
+    const endingReal = realPath[realPath.length - 1];
     const normalizedEnding = Math.max(0, endingReal);
     endingValues.push(normalizedEnding);
-    yearlyBalancesByPeriod.push(path);
+    yearlyRealBalancesByPeriod.push(realPath);
 
     const startYear = historicalReturns[startIndex].year;
     const endYear = historicalReturns[startIndex + inputs.years - 1].year;
@@ -184,7 +185,7 @@ export function runHistoricalSimulation(inputs: HistoricalInputs): HistoricalRes
 
   const percentilePaths: PathPercentiles = { p10: [], p50: [], p90: [] };
   for (let year = 0; year <= inputs.years; year += 1) {
-    const balances = yearlyBalancesByPeriod.map((path) => path[year]).sort((a, b) => a - b);
+    const balances = yearlyRealBalancesByPeriod.map((path) => path[year]).sort((a, b) => a - b);
     percentilePaths.p10.push(percentile(balances, 0.1));
     percentilePaths.p50.push(percentile(balances, 0.5));
     percentilePaths.p90.push(percentile(balances, 0.9));
