@@ -11,7 +11,7 @@
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
-    "test:e2e:install": "playwright install chromium"
+    "test:e2e:install": "playwright install --with-deps chromium"
   },
   "dependencies": {
     "next": "16.2.1",
