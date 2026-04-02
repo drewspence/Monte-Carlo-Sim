@@ -9,6 +9,7 @@ import {
   getAllocationTotal,
   normalizeAllocation,
   runMonteCarloSimulation,
+  validateInputs,
   type AllocationMix,
   type MonteCarloInputs,
   type WithdrawalMode,
@@ -30,15 +31,19 @@ function NumberField({
   value,
   onChange,
   step = 1,
-  min = 0,
+  min,
+  max,
   suffix,
+  error,
 }: {
   label: string;
   value: number;
   onChange: (next: number) => void;
   step?: number;
   min?: number;
+  max?: number;
   suffix?: string;
+  error?: string;
 }) {
   return (
     <label className="space-y-1.5">
@@ -46,14 +51,20 @@ function NumberField({
       <div className="relative">
         <input
           type="number"
-          value={Number.isFinite(value) ? value : 0}
+          value={Number.isFinite(value) ? value : ""}
           min={min}
+          max={max}
           step={step}
           onChange={(event) => onChange(Number(event.target.value))}
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          className={`w-full rounded-lg border bg-white px-3 py-2 pr-10 text-sm text-slate-900 outline-none transition focus:ring-2 ${
+            error
+              ? "border-rose-400 focus:border-rose-500 focus:ring-rose-100"
+              : "border-slate-300 focus:border-blue-500 focus:ring-blue-100"
+          }`}
         />
         {suffix ? <span className="pointer-events-none absolute right-3 top-2 text-xs text-slate-500">{suffix}</span> : null}
       </div>
+      {error ? <p className="text-xs font-medium text-rose-600">{error}</p> : null}
     </label>
   );
 }
@@ -80,6 +91,7 @@ function AllocationFields({
           label={item.label}
           value={allocation[item.key]}
           min={0}
+          max={100}
           step={0.5}
           suffix="%"
           onChange={(value) =>
@@ -95,36 +107,36 @@ function AllocationFields({
 }
 
 export default function Home() {
-  const [inputs, setInputs] = useState<MonteCarloInputs>(DEFAULT_INPUTS);
-  const [allocationError, setAllocationError] = useState<string | null>(null);
+  const [draftInputs, setDraftInputs] = useState<MonteCarloInputs>(DEFAULT_INPUTS);
+  const [activeInputs, setActiveInputs] = useState<MonteCarloInputs>(DEFAULT_INPUTS);
 
-  const allocationTotal = getAllocationTotal(inputs.allocation);
-  const allocationBlend = useMemo(() => deriveBlendedAssumptions(inputs.allocation), [inputs.allocation]);
+  const allocationTotal = getAllocationTotal(draftInputs.allocation);
+  const allocationBlend = useMemo(() => deriveBlendedAssumptions(draftInputs.allocation), [draftInputs.allocation]);
+  const validationErrors = useMemo(() => validateInputs(draftInputs), [draftInputs]);
+  const hasValidationErrors = Object.keys(validationErrors).length > 0;
 
-  const simulation = runMonteCarloSimulation(inputs);
+  const simulation = useMemo(() => runMonteCarloSimulation(activeInputs), [activeInputs]);
 
   const setField = <K extends keyof MonteCarloInputs>(key: K, value: MonteCarloInputs[K]) => {
-    setInputs((current) => ({ ...current, [key]: value }));
+    setDraftInputs((current) => ({ ...current, [key]: value }));
   };
 
   const changeWithdrawalMode = (mode: WithdrawalMode) => {
-    setInputs((current) => ({ ...current, withdrawalMode: mode }));
+    setDraftInputs((current) => ({ ...current, withdrawalMode: mode }));
   };
 
   const normalizeAllocationClick = () => {
-    const normalized = normalizeAllocation(inputs.allocation);
-    setInputs((current) => ({ ...current, allocation: normalized }));
-    setAllocationError(null);
+    const normalized = normalizeAllocation(draftInputs.allocation);
+    setDraftInputs((current) => ({ ...current, allocation: normalized }));
   };
 
   const updateAllocation = (allocation: AllocationMix) => {
-    setInputs((current) => ({ ...current, allocation }));
-    const total = getAllocationTotal(allocation);
-    if (Math.abs(total - 100) > 0.01) {
-      setAllocationError(`Allocation currently totals ${total.toFixed(1)}%. It should equal 100%.`);
-    } else {
-      setAllocationError(null);
-    }
+    setDraftInputs((current) => ({ ...current, allocation }));
+  };
+
+  const runSimulation = () => {
+    if (hasValidationErrors) return;
+    setActiveInputs(draftInputs);
   };
 
   return (
@@ -140,19 +152,30 @@ export default function Home() {
           <div className="space-y-4">
             <NumberField
               label="Starting Portfolio Balance"
-              value={inputs.startingBalance}
-              min={1000}
+              value={draftInputs.startingBalance}
+              min={1}
               step={1000}
-              onChange={(value) => setField("startingBalance", Math.max(0, value))}
+              onChange={(value) => setField("startingBalance", value)}
               suffix="USD"
+              error={validationErrors.startingBalance}
             />
             <NumberField
               label="Time Horizon"
-              value={inputs.years}
+              value={draftInputs.years}
               min={1}
               step={1}
-              onChange={(value) => setField("years", Math.max(1, Math.round(value)))}
+              onChange={(value) => setField("years", Math.round(value))}
               suffix="yrs"
+              error={validationErrors.years}
+            />
+            <NumberField
+              label="Monte Carlo Trials"
+              value={draftInputs.trials}
+              min={100}
+              max={100000}
+              step={100}
+              onChange={(value) => setField("trials", Math.round(value))}
+              error={validationErrors.trials}
             />
 
             <div className="space-y-2">
@@ -162,7 +185,7 @@ export default function Home() {
                   type="button"
                   onClick={() => changeWithdrawalMode("fixedDollar")}
                   className={`rounded-md px-3 py-2 text-xs font-medium transition ${
-                    inputs.withdrawalMode === "fixedDollar" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"
+                    draftInputs.withdrawalMode === "fixedDollar" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"
                   }`}
                 >
                   Fixed Dollar
@@ -171,7 +194,7 @@ export default function Home() {
                   type="button"
                   onClick={() => changeWithdrawalMode("fixedPercent")}
                   className={`rounded-md px-3 py-2 text-xs font-medium transition ${
-                    inputs.withdrawalMode === "fixedPercent" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"
+                    draftInputs.withdrawalMode === "fixedPercent" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"
                   }`}
                 >
                   Fixed Percent
@@ -179,57 +202,65 @@ export default function Home() {
               </div>
             </div>
 
-            {inputs.withdrawalMode === "fixedDollar" ? (
+            {draftInputs.withdrawalMode === "fixedDollar" ? (
               <NumberField
                 label="Annual Withdrawal"
-                value={inputs.annualWithdrawal}
+                value={draftInputs.annualWithdrawal}
                 min={0}
                 step={500}
-                onChange={(value) => setField("annualWithdrawal", Math.max(0, value))}
+                onChange={(value) => setField("annualWithdrawal", value)}
                 suffix="USD"
+                error={validationErrors.annualWithdrawal}
               />
             ) : (
               <NumberField
                 label="Withdrawal Percentage"
-                value={inputs.withdrawalPercent}
+                value={draftInputs.withdrawalPercent}
                 min={0}
+                max={100}
                 step={0.1}
-                onChange={(value) => setField("withdrawalPercent", Math.max(0, value))}
+                onChange={(value) => setField("withdrawalPercent", value)}
                 suffix="%"
+                error={validationErrors.withdrawalPercent}
               />
             )}
 
             <NumberField
               label="Inflation Rate"
-              value={inputs.inflationRate}
+              value={draftInputs.inflationRate}
               min={0}
               step={0.1}
-              onChange={(value) => setField("inflationRate", Math.max(0, value))}
+              onChange={(value) => setField("inflationRate", value)}
               suffix="%"
+              error={validationErrors.inflationRate}
             />
             <NumberField
               label="Expected Annual Return"
-              value={inputs.expectedReturn}
-              min={-50}
+              value={draftInputs.expectedReturn}
+              min={-100}
+              max={100}
               step={0.1}
               onChange={(value) => setField("expectedReturn", value)}
               suffix="%"
+              error={validationErrors.expectedReturn}
             />
             <NumberField
               label="Annual Volatility"
-              value={inputs.volatility}
-              min={0}
+              value={draftInputs.volatility}
+              min={0.1}
               step={0.1}
-              onChange={(value) => setField("volatility", Math.max(0, value))}
+              onChange={(value) => setField("volatility", value)}
               suffix="%"
+              error={validationErrors.volatility}
             />
             <NumberField
               label="Annual Fees Drag"
-              value={inputs.feeDrag}
+              value={draftInputs.feeDrag}
               min={0}
               step={0.05}
-              onChange={(value) => setField("feeDrag", Math.max(0, value))}
+              onChange={(value) => setField("feeDrag", value)}
               suffix="%"
+              error={validationErrors.feeDrag}
             />
 
             <section className="rounded-lg border border-slate-200 bg-white p-4">
@@ -243,10 +274,21 @@ export default function Home() {
                   Normalize
                 </button>
               </div>
-              <AllocationFields allocation={inputs.allocation} onChange={updateAllocation} />
+              <AllocationFields allocation={draftInputs.allocation} onChange={updateAllocation} />
               <p className="mt-3 text-xs text-slate-500">Total: {allocationTotal.toFixed(1)}%</p>
-              {allocationError ? <p className="mt-1 text-xs font-medium text-amber-600">{allocationError}</p> : null}
+              {validationErrors.allocationTotal ? (
+                <p className="mt-1 text-xs font-medium text-rose-600">{validationErrors.allocationTotal}</p>
+              ) : null}
             </section>
+
+            <button
+              type="button"
+              onClick={runSimulation}
+              disabled={hasValidationErrors}
+              className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              Run simulation
+            </button>
           </div>
         </aside>
 
@@ -254,7 +296,9 @@ export default function Home() {
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-2xl font-semibold tracking-tight">Longevity Results</h2>
-              <p className="mt-1 text-sm text-slate-500">{inputs.trials.toLocaleString()} Monte Carlo trials · {inputs.years} years</p>
+              <p className="mt-1 text-sm text-slate-500">
+                {activeInputs.trials.toLocaleString()} Monte Carlo trials · {activeInputs.years} {activeInputs.years === 1 ? "year" : "years"}
+              </p>
             </div>
             <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-500">
               Blended Assumptions: {allocationBlend.blendedReturn.toFixed(1)}% return / {allocationBlend.blendedVolatility.toFixed(1)}% vol
@@ -263,30 +307,43 @@ export default function Home() {
 
           <div className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <article className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Success Probability</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">{simulation.summary.successLabel}</p>
               <p className="mt-2 text-2xl font-semibold text-emerald-600">
                 {percentFormatter.format(simulation.summary.successProbability)}
               </p>
             </article>
             <article className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Depletion Probability</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">{simulation.summary.depletionLabel}</p>
               <p className="mt-2 text-2xl font-semibold text-rose-600">
                 {percentFormatter.format(simulation.summary.depletionProbability)}
               </p>
             </article>
             <article className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Median Ending Value</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Median Ending Value (Real)</p>
               <p className="mt-2 text-2xl font-semibold text-slate-900">
                 {moneyFormatter.format(simulation.summary.medianEndingValue)}
               </p>
             </article>
             <article className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Median Depletion Year</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                {activeInputs.withdrawalMode === "fixedDollar" ? "Median Depletion Year" : "Median Withdrawal (Real)"}
+              </p>
               <p className="mt-2 text-2xl font-semibold text-slate-900">
-                {simulation.summary.medianDepletionYear ? simulation.summary.medianDepletionYear.toFixed(0) : "N/A"}
+                {activeInputs.withdrawalMode === "fixedDollar"
+                  ? simulation.summary.medianDepletionYear
+                    ? simulation.summary.medianDepletionYear.toFixed(0)
+                    : "N/A"
+                  : moneyFormatter.format(simulation.summary.medianRealWithdrawal ?? 0)}
               </p>
             </article>
           </div>
+
+          {activeInputs.withdrawalMode === "fixedPercent" ? (
+            <p className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+              Fixed-percentage mode tracks spending sustainability rather than literal depletion. Success means inflation-adjusted
+              withdrawals stayed above {moneyFormatter.format(simulation.summary.fixedPercentWithdrawalFloor ?? 0)} every year.
+            </p>
+          ) : null}
 
           <div className="grid gap-4 xl:grid-cols-2">
             <PathChart
@@ -297,14 +354,14 @@ export default function Home() {
                 { label: "90th percentile", color: "#10b981", values: simulation.percentilePaths.p90 },
               ]}
             />
-            <EndingHistogram bins={simulation.endingValueHistogram} />
+            <EndingHistogram bins={simulation.endingValueHistogram} totalTrials={activeInputs.trials} />
           </div>
 
           <section className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
             <h3 className="text-sm font-semibold text-slate-900">How to interpret this simulation</h3>
             <p className="mt-2 text-sm leading-relaxed text-slate-600">
               This estimate models hypothetical annual returns and withdrawals to show how often the portfolio lasts through
-              year {inputs.years}. It is not a prediction or personalized advice. Outcomes are sensitive to return,
+              year {activeInputs.years}. It is not a prediction or personalized advice. Outcomes are sensitive to return,
               volatility, inflation, fees, allocation mix, and withdrawal assumptions.
             </p>
           </section>
