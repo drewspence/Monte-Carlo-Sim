@@ -97,3 +97,24 @@ test('aggressive withdrawal scenario displays low success rate', async ({ page }
   const successRate = Number.parseFloat(successValue.replace('%', '').trim());
   expect(successRate).toBeLessThanOrEqual(25);
 });
+
+
+test('can switch to historical bootstrap mode and render bootstrap results', async ({ page }, testInfo) => {
+  await page.goto('/');
+
+  await page.getByLabel(/simulation mode/i).selectOption('historicalBootstrap');
+  await page.getByLabel(/number of simulations/i).fill('600');
+  await page.getByLabel(/analysis period/i).selectOption('20');
+  await page.getByLabel(/annual withdrawal/i).fill('50000');
+  await page.getByRole('button', { name: /run bootstrap simulation/i }).click();
+
+  await expect(page.getByRole('heading', { name: /historical bootstrap results/i })).toBeVisible();
+  await expect(page.getByText(/randomized monthly draws with replacement/i)).toBeVisible();
+  await expect(page.getByText(/p10 ending value/i)).toBeVisible();
+  await expect(page.getByText(/p50 ending value/i)).toBeVisible();
+  await expect(page.getByText(/p90 ending value/i)).toBeVisible();
+  await expect(page.getByTestId('path-chart-svg')).toBeVisible();
+  await expect(page.getByTestId('ending-histogram-card')).toBeVisible();
+
+  await captureStateScreenshot(page, testInfo, 'bootstrap-results');
+});
