@@ -273,7 +273,8 @@ export default function Home() {
             <p className="mt-2 text-sm leading-relaxed text-slate-600">
               This tool does not use random Monte Carlo draws. It evaluates every consecutive {activeInputs.years}-year historical
               sequence (for example, 1928-{1928 + activeInputs.years - 1}) and applies your chosen stock/bond blend each year,
-              applies withdrawals at the beginning of each year, then applies net returns after fees, grows withdrawals by your inflation setting, and records depletion events.
+              applies withdrawals at the beginning of each year, then applies net returns after fees, grows withdrawals by your inflation
+              setting, records depletion events, and reports charted/ending balances in inflation-adjusted (real) dollars.
             </p>
           </section>
         </main>

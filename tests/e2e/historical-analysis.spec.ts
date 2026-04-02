@@ -79,3 +79,21 @@ test('unsustainable withdrawal edge case still renders output without crashing',
   await expect(page.getByTestId('path-chart-svg')).toBeVisible();
   await expect(page.getByTestId('ending-histogram-card')).toBeVisible();
 });
+
+test('aggressive withdrawal scenario displays low success rate', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByLabel(/annual withdrawal/i).fill('80000');
+  await page.getByLabel(/u.s. stocks/i).fill('60');
+  await page.getByLabel(/u.s. bonds/i).fill('40');
+  await page.getByRole('button', { name: runButtonName }).click();
+
+  const successValue = await page
+    .locator('article', { hasText: /success rate/i })
+    .locator('p')
+    .nth(1)
+    .innerText();
+
+  const successRate = Number.parseFloat(successValue.replace('%', '').trim());
+  expect(successRate).toBeLessThanOrEqual(25);
+});

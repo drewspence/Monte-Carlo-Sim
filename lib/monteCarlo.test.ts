@@ -34,6 +34,7 @@ describe("runHistoricalSimulation", () => {
     expect(result.summary.bestOutcome.period).toMatch(/\d{4}-\d{4}/);
     expect(result.summary.worstOutcome.period).toMatch(/\d{4}-\d{4}/);
     expect(result.endingValueHistogram.reduce((sum, bin) => sum + bin.count, 0)).toBe(result.summary.periodsTested);
+    expect(result.percentilePaths.p50.at(-1)).toBeCloseTo(result.summary.medianEndingValue, 6);
   });
 
   it("uses withdrawal-first timing and depletes immediately when withdrawal exceeds starting balance", () => {
@@ -52,5 +53,19 @@ describe("runHistoricalSimulation", () => {
     expect(result.summary.depletionRate).toBe(1);
     expect(result.summary.medianDepletionYear).toBe(1);
     expect(result.summary.medianEndingValue).toBe(0);
+  });
+
+  it("shows low historical success for aggressive withdrawal rates", () => {
+    const result = runHistoricalSimulation({
+      ...DEFAULT_INPUTS,
+      years: 30,
+      annualWithdrawal: 80_000,
+      stockAllocation: 60,
+      bondAllocation: 40,
+    });
+
+    expect(result.summary.successRate).toBeLessThanOrEqual(0.25);
+    expect(result.summary.depletionRate).toBeGreaterThanOrEqual(0.75);
+    expect(result.summary.medianDepletionYear).toBeLessThan(20);
   });
 });
