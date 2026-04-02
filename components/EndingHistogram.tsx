@@ -1,4 +1,4 @@
-import type { HistogramBin } from "@/lib/monteCarlo";
+import type { HistogramBin } from "@/lib/historicalAnalysis";
 
 type EndingHistogramProps = {
   bins: HistogramBin[];
@@ -12,7 +12,7 @@ export function EndingHistogram({ bins, totalTrials }: EndingHistogramProps) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4">
       <h3 className="text-sm font-semibold text-slate-900">Ending Value Distribution (Real Dollars)</h3>
-      <p className="mb-4 mt-1 text-xs text-slate-500">Histogram of inflation-adjusted ending balances across all trials.</p>
+      <p className="mb-4 mt-1 text-xs text-slate-500">Histogram of ending balances across all rolling historical periods.</p>
 
       <div className="space-y-2">
         {bins.map((bin, index) => {
@@ -35,7 +35,7 @@ export function EndingHistogram({ bins, totalTrials }: EndingHistogramProps) {
         })}
       </div>
 
-      <p className="mt-3 text-[11px] text-slate-500">Binned trials: {binnedTotal.toLocaleString()} / {totalTrials.toLocaleString()}</p>
+      <p className="mt-3 text-[11px] text-slate-500">Binned periods: {binnedTotal.toLocaleString()} / {totalTrials.toLocaleString()}</p>
     </div>
   );
 }

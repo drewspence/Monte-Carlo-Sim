@@ -1,20 +1,9 @@
 import { describe, expect, it } from "vitest";
-import {
-  DEFAULT_INPUTS,
-  normalizeAllocation,
-  runMonteCarloSimulation,
-  validateInputs,
-} from "./monteCarlo";
+import { DEFAULT_INPUTS, getAllocationTotal, runHistoricalSimulation, validateInputs } from "./historicalAnalysis";
 
-describe("normalizeAllocation", () => {
-  it("normalizes to 100 with one decimal place", () => {
-    const normalized = normalizeAllocation({ usStocks: 33, intlStocks: 33, usBonds: 33, cash: 33 });
-    const total = Object.values(normalized).reduce((sum, value) => sum + value, 0);
-
-    expect(total).toBeCloseTo(100, 5);
-    for (const value of Object.values(normalized)) {
-      expect(Number.isInteger(value * 10)).toBe(true);
-    }
+describe("getAllocationTotal", () => {
+  it("totals stock and bond allocations", () => {
+    expect(getAllocationTotal({ stockAllocation: 60, bondAllocation: 40 })).toBe(100);
   });
 });
 
@@ -22,48 +11,46 @@ describe("validateInputs", () => {
   it("returns errors for invalid ranges and allocation mismatch", () => {
     const errors = validateInputs({
       ...DEFAULT_INPUTS,
-      years: 0,
-      withdrawalPercent: 120,
-      volatility: 0,
-      allocation: { usStocks: 80, intlStocks: 20, usBonds: 10, cash: 10 },
+      years: 20,
+      stockAllocation: 70,
+      bondAllocation: 20,
+      inflationRate: -1,
     });
 
-    expect(errors.years).toBeTruthy();
-    expect(errors.withdrawalPercent).toBeTruthy();
-    expect(errors.volatility).toBeTruthy();
+    expect(errors.inflationRate).toBeTruthy();
     expect(errors.allocationTotal).toBeTruthy();
   });
 });
 
-describe("runMonteCarloSimulation", () => {
-  it("uses floor-based success for fixed percentage mode and null depletion median", () => {
-    const result = runMonteCarloSimulation({
+describe("runHistoricalSimulation", () => {
+  it("tests all available rolling periods and returns summary metrics", () => {
+    const result = runHistoricalSimulation({
       ...DEFAULT_INPUTS,
-      trials: 300,
-      years: 15,
-      withdrawalMode: "fixedPercent",
-      withdrawalPercent: 4,
+      years: 30,
     });
 
-    expect(result.summary.successLabel).toContain("Floor");
-    expect(result.summary.medianDepletionYear).toBeNull();
-    expect(result.summary.fixedPercentWithdrawalFloor).toBeCloseTo(40_000, 5);
-    expect(result.endingValueHistogram.reduce((sum, bin) => sum + bin.count, 0)).toBe(300);
+    expect(result.summary.periodsTested).toBe(68);
+    expect(result.summary.successRate + result.summary.depletionRate).toBeCloseTo(1, 10);
+    expect(result.summary.bestOutcome.period).toMatch(/\d{4}-\d{4}/);
+    expect(result.summary.worstOutcome.period).toMatch(/\d{4}-\d{4}/);
+    expect(result.endingValueHistogram.reduce((sum, bin) => sum + bin.count, 0)).toBe(result.summary.periodsTested);
   });
 
-  it("keeps depletion-year metric for fixed dollar mode", () => {
-    const result = runMonteCarloSimulation({
+  it("uses withdrawal-first timing and depletes immediately when withdrawal exceeds starting balance", () => {
+    const result = runHistoricalSimulation({
       ...DEFAULT_INPUTS,
-      trials: 300,
       years: 20,
-      withdrawalMode: "fixedDollar",
-      annualWithdrawal: 150_000,
+      startingBalance: 100,
+      annualWithdrawal: 120,
+      inflationRate: 0,
+      feeDrag: 0,
+      stockAllocation: 100,
+      bondAllocation: 0,
     });
 
-    expect(result.summary.successLabel).toBe("Success Probability");
-    expect(result.summary.medianDepletionYear === null || result.summary.medianDepletionYear > 0).toBe(true);
-    expect(result.endingValueHistogram.length).toBeGreaterThanOrEqual(10);
-    expect(result.endingValueHistogram.length).toBeLessThanOrEqual(20);
-    expect(result.endingValueHistogram.reduce((sum, bin) => sum + bin.count, 0)).toBe(300);
+    expect(result.summary.successRate).toBe(0);
+    expect(result.summary.depletionRate).toBe(1);
+    expect(result.summary.medianDepletionYear).toBe(1);
+    expect(result.summary.medianEndingValue).toBe(0);
   });
 });

@@ -37,8 +37,8 @@ export function PathChart({ years, series }: PathChartProps) {
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <h3 className="text-sm font-semibold text-slate-900">Portfolio Path Percentiles</h3>
-      <p className="mb-4 mt-1 text-xs text-slate-500">10th, 50th, and 90th percentile balances by year.</p>
+      <h3 className="text-sm font-semibold text-slate-900">Historical Path Percentiles</h3>
+      <p className="mb-4 mt-1 text-xs text-slate-500">10th, 50th, and 90th percentile balances across all tested periods.</p>
 
       <svg viewBox={`0 0 ${width} ${height}`} className="h-72 w-full">
         {Array.from({ length: yTicks + 1 }, (_, i) => {
@@ -60,16 +60,7 @@ export function PathChart({ years, series }: PathChartProps) {
             y: yScale(entry.values[index] ?? 0),
           }));
 
-          return (
-            <path
-              key={entry.label}
-              d={pathFromPoints(points)}
-              stroke={entry.color}
-              strokeWidth="3"
-              fill="none"
-              strokeLinecap="round"
-            />
-          );
+          return <path key={entry.label} d={pathFromPoints(points)} stroke={entry.color} strokeWidth="3" fill="none" strokeLinecap="round" />;
         })}
 
         <line x1={padding} x2={width - padding} y1={height - padding} y2={height - padding} stroke="#94a3b8" />
